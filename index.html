@@ -87,37 +87,177 @@ const { Engine, Render, Runner, Bodies, Body, Composite, Events } = Matter;
 const AudioCtx = window.AudioContext || window.webkitAudioContext;
 let audioCtx;
 function ac() { if (!audioCtx) audioCtx = new AudioCtx(); return audioCtx; }
-function noiseBuffer() {
-  const c = ac(), buf = c.createBuffer(1, c.sampleRate * 0.05, c.sampleRate), d = buf.getChannelData(0);
+function noiseBuffer(dur) {
+  dur = dur || 0.05;
+  const c = ac(), buf = c.createBuffer(1, c.sampleRate * dur, c.sampleRate), d = buf.getChannelData(0);
   for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * 0.5; return buf;
 }
-function playPop(freq, vol) {
+function playTone(freq, type, vol, dur, slide) {
   const c = ac(), t = c.currentTime;
   const o = c.createOscillator(), g = c.createGain();
-  o.type = 'sine'; o.frequency.setValueAtTime(freq, t);
-  o.frequency.linearRampToValueAtTime(freq * 2.5, t + 0.03);
-  o.frequency.exponentialRampToValueAtTime(freq * 0.8, t + 0.18);
-  g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(vol, t + 0.005);
-  g.gain.exponentialRampToValueAtTime(0.001, t + 0.2);
-  o.connect(g); g.connect(c.destination); o.start(t); o.stop(t + 0.2);
+  o.type = type || 'sine'; o.frequency.setValueAtTime(freq, t);
+  if (slide) o.frequency.exponentialRampToValueAtTime(slide, t + dur);
+  g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+  o.connect(g); g.connect(c.destination); o.start(t); o.stop(t + dur);
+}
+
+// 哈基米：猫叫 喵~（高频滑音+噪声气息）
+function sfxHakimi() {
+  const c = ac(), t = c.currentTime;
+  // 主音：高频下滑模拟猫叫
+  const o = c.createOscillator(), g = c.createGain();
+  o.type = 'sine'; o.frequency.setValueAtTime(900, t);
+  o.frequency.linearRampToValueAtTime(1200, t + 0.05);
+  o.frequency.exponentialRampToValueAtTime(600, t + 0.25);
+  g.gain.setValueAtTime(0.25, t); g.gain.linearRampToValueAtTime(0.3, t + 0.05);
+  g.gain.exponentialRampToValueAtTime(0.001, t + 0.3);
+  o.connect(g); g.connect(c.destination); o.start(t); o.stop(t + 0.3);
+  // 泛音
+  const o2 = c.createOscillator(), g2 = c.createGain();
+  o2.type = 'triangle'; o2.frequency.setValueAtTime(1800, t);
+  o2.frequency.exponentialRampToValueAtTime(1200, t + 0.2);
+  g2.gain.setValueAtTime(0.08, t); g2.gain.exponentialRampToValueAtTime(0.001, t + 0.2);
+  o2.connect(g2); g2.connect(c.destination); o2.start(t); o2.stop(t + 0.2);
+}
+
+// 卡皮巴拉：低沉佛系 嗯~
+function sfxCapybara() {
+  const c = ac(), t = c.currentTime;
+  const o = c.createOscillator(), g = c.createGain();
+  o.type = 'sine'; o.frequency.setValueAtTime(180, t);
+  o.frequency.linearRampToValueAtTime(200, t + 0.1);
+  o.frequency.exponentialRampToValueAtTime(150, t + 0.35);
+  g.gain.setValueAtTime(0.3, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.4);
+  o.connect(g); g.connect(c.destination); o.start(t); o.stop(t + 0.4);
+  // 低频共鸣
+  const o2 = c.createOscillator(), g2 = c.createGain();
+  o2.type = 'triangle'; o2.frequency.setValueAtTime(90, t);
+  g2.gain.setValueAtTime(0.15, t); g2.gain.exponentialRampToValueAtTime(0.001, t + 0.35);
+  o2.connect(g2); g2.connect(c.destination); o2.start(t); o2.stop(t + 0.35);
+}
+
+// 露比：可爱叮~ 高频铃声
+function sfxLoopy() {
+  const c = ac(), t = c.currentTime;
+  [1200, 1500, 1800].forEach((f, i) => {
+    const o = c.createOscillator(), g = c.createGain();
+    o.type = 'sine'; o.frequency.setValueAtTime(f, t + i * 0.06);
+    g.gain.setValueAtTime(0.2, t + i * 0.06);
+    g.gain.exponentialRampToValueAtTime(0.001, t + i * 0.06 + 0.15);
+    o.connect(g); g.connect(c.destination); o.start(t + i * 0.06); o.stop(t + i * 0.06 + 0.15);
+  });
+}
+
+// 吉伊卡哇：软萌 哇~ 上滑音
+function sfxChiikawa() {
+  const c = ac(), t = c.currentTime;
+  const o = c.createOscillator(), g = c.createGain();
+  o.type = 'sine'; o.frequency.setValueAtTime(500, t);
+  o.frequency.linearRampToValueAtTime(900, t + 0.12);
+  o.frequency.exponentialRampToValueAtTime(700, t + 0.3);
+  g.gain.setValueAtTime(0.25, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.35);
+  o.connect(g); g.connect(c.destination); o.start(t); o.stop(t + 0.35);
+  // 可爱泛音
+  setTimeout(() => playTone(1400, 'sine', 0.08, 0.12), 50);
+}
+
+// 我的刀盾：金属碰撞
+function sfxShield() {
+  const c = ac(), t = c.currentTime;
+  // 金属撞击：高频噪声 + 共鸣
   const ns = c.createBufferSource(), ng = c.createGain(), bp = c.createBiquadFilter();
-  bp.type = 'bandpass'; bp.frequency.value = freq * 4; bp.Q.value = 2;
-  ns.buffer = noiseBuffer(); ng.gain.setValueAtTime(vol * 0.5, t);
-  ng.gain.exponentialRampToValueAtTime(0.001, t + 0.06);
-  ns.connect(bp); bp.connect(ng); ng.connect(c.destination); ns.start(t); ns.stop(t + 0.06);
+  bp.type = 'bandpass'; bp.frequency.value = 4000; bp.Q.value = 8;
+  ns.buffer = noiseBuffer(0.08); ng.gain.setValueAtTime(0.4, t);
+  ng.gain.exponentialRampToValueAtTime(0.001, t + 0.1);
+  ns.connect(bp); bp.connect(ng); ng.connect(c.destination); ns.start(t); ns.stop(t + 0.1);
+  // 金属共鸣
+  [2200, 3300].forEach(f => {
+    const o = c.createOscillator(), g = c.createGain();
+    o.type = 'square'; o.frequency.setValueAtTime(f, t);
+    o.frequency.exponentialRampToValueAtTime(f * 0.5, t + 0.2);
+    g.gain.setValueAtTime(0.12, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.25);
+    o.connect(g); g.connect(c.destination); o.start(t); o.stop(t + 0.25);
+  });
 }
-function playDrop() { playPop(800, 0.2); }
-function playMerge(level) {
-  const base = 350 + level * 80; playPop(base, 0.3);
-  setTimeout(() => { const c=ac(),t=c.currentTime,o=c.createOscillator(),g=c.createGain(); o.type='sine';
-    o.frequency.setValueAtTime(base*1.5,t); o.frequency.exponentialRampToValueAtTime(base*1.2,t+0.12);
-    g.gain.setValueAtTime(0.15,t); g.gain.exponentialRampToValueAtTime(0.001,t+0.15);
-    o.connect(g); g.connect(c.destination); o.start(t); o.stop(t+0.15); }, 40);
-  if (level >= 4) setTimeout(() => playPop(base*2.5, 0.1), 80);
-  if (level >= 7) { setTimeout(() => playPop(base*3, 0.08), 120); setTimeout(() => playPop(base*0.75, 0.12), 60); }
+
+// 你在教我做事：低沉 嗯？ 疑问上扬
+function sfxTeach() {
+  const c = ac(), t = c.currentTime;
+  const o = c.createOscillator(), g = c.createGain();
+  o.type = 'sawtooth'; o.frequency.setValueAtTime(200, t);
+  o.frequency.setValueAtTime(200, t + 0.15);
+  o.frequency.linearRampToValueAtTime(350, t + 0.25);
+  g.gain.setValueAtTime(0.2, t); g.gain.setValueAtTime(0.2, t + 0.2);
+  g.gain.exponentialRampToValueAtTime(0.001, t + 0.35);
+  o.connect(g); g.connect(c.destination); o.start(t); o.stop(t + 0.35);
 }
-function playSpecial() { playPop(1200, 0.3); setTimeout(() => playPop(1500, 0.2), 60); setTimeout(() => playPop(1800, 0.15), 120); }
-function playCombo(n) { playPop(600+n*150, 0.2); setTimeout(() => playPop(800+n*150, 0.15), 50); }
+
+// 科目三：节奏鼓点 咚哒咚哒
+function sfxKemu3() {
+  const c = ac(), t = c.currentTime;
+  [0, 0.1, 0.2, 0.3].forEach((d, i) => {
+    const f = i % 2 === 0 ? 100 : 250;
+    const o = c.createOscillator(), g = c.createGain();
+    o.type = 'sine'; o.frequency.setValueAtTime(f, t + d);
+    o.frequency.exponentialRampToValueAtTime(f * 0.3, t + d + 0.08);
+    g.gain.setValueAtTime(0.3, t + d); g.gain.exponentialRampToValueAtTime(0.001, t + d + 0.08);
+    o.connect(g); g.connect(c.destination); o.start(t + d); o.stop(t + d + 0.08);
+    // 噪声打击
+    const ns = c.createBufferSource(), ng = c.createGain();
+    ns.buffer = noiseBuffer(0.03); ng.gain.setValueAtTime(i % 2 === 0 ? 0.15 : 0.25, t + d);
+    ng.gain.exponentialRampToValueAtTime(0.001, t + d + 0.05);
+    ns.connect(ng); ng.connect(c.destination); ns.start(t + d); ns.stop(t + d + 0.05);
+  });
+}
+
+// 遥遥领先：上升音阶 do re mi fa
+function sfxLeading() {
+  const c = ac(), t = c.currentTime;
+  [523, 659, 784, 1047].forEach((f, i) => {
+    const o = c.createOscillator(), g = c.createGain();
+    o.type = 'sine'; o.frequency.setValueAtTime(f, t + i * 0.08);
+    g.gain.setValueAtTime(0.2, t + i * 0.08);
+    g.gain.exponentialRampToValueAtTime(0.001, t + i * 0.08 + 0.12);
+    o.connect(g); g.connect(c.destination); o.start(t + i * 0.08); o.stop(t + i * 0.08 + 0.12);
+  });
+}
+
+// 6：电子 "六六六" 三连音
+function sfxLiu() {
+  const c = ac(), t = c.currentTime;
+  [0, 0.1, 0.2].forEach(d => {
+    const o = c.createOscillator(), g = c.createGain();
+    o.type = 'square'; o.frequency.setValueAtTime(660, t + d);
+    o.frequency.linearRampToValueAtTime(880, t + d + 0.04);
+    o.frequency.exponentialRampToValueAtTime(660, t + d + 0.08);
+    g.gain.setValueAtTime(0.15, t + d); g.gain.exponentialRampToValueAtTime(0.001, t + d + 0.1);
+    o.connect(g); g.connect(c.destination); o.start(t + d); o.stop(t + d + 0.1);
+  });
+}
+
+// 你是懂的：皇冠加冕 华丽和弦
+function sfxKing() {
+  const c = ac(), t = c.currentTime;
+  // 和弦：C E G C'
+  [523, 659, 784, 1047].forEach((f, i) => {
+    const o = c.createOscillator(), g = c.createGain();
+    o.type = 'sine'; o.frequency.setValueAtTime(f, t);
+    g.gain.setValueAtTime(0.15, t); g.gain.linearRampToValueAtTime(0.2, t + 0.1);
+    g.gain.exponentialRampToValueAtTime(0.001, t + 0.5);
+    o.connect(g); g.connect(c.destination); o.start(t); o.stop(t + 0.5);
+  });
+  // 闪亮音效
+  setTimeout(() => { playTone(2000, 'sine', 0.1, 0.15, 2500); }, 100);
+  setTimeout(() => { playTone(2500, 'sine', 0.08, 0.12, 3000); }, 200);
+}
+
+// 合成音效分发
+const MERGE_SFX = [sfxHakimi, sfxCapybara, sfxLoopy, sfxChiikawa, sfxShield, sfxTeach, sfxKemu3, sfxLeading, sfxLiu, sfxKing];
+
+function playDrop() { playTone(800, 'sine', 0.15, 0.1, 400); }
+function playMerge(level) { if (MERGE_SFX[level]) MERGE_SFX[level](); }
+function playSpecial() { playTone(1200, 'sine', 0.3, 0.1); setTimeout(() => playTone(1500, 'sine', 0.2, 0.1), 60); setTimeout(() => playTone(1800, 'sine', 0.15, 0.1), 120); }
+function playCombo(n) { playTone(600+n*150, 'sine', 0.2, 0.12); setTimeout(() => playTone(800+n*150, 'sine', 0.15, 0.1), 50); }
 function playGameOver() { const c=ac(),t=c.currentTime; [350,280,200].forEach((f,i) => { const o=c.createOscillator(),g=c.createGain(); o.type='sine'; o.frequency.setValueAtTime(f,t+i*0.18); o.frequency.exponentialRampToValueAtTime(f*0.5,t+i*0.18+0.35); g.gain.setValueAtTime(0.2,t+i*0.18); g.gain.exponentialRampToValueAtTime(0.001,t+i*0.18+0.4); o.connect(g); g.connect(c.destination); o.start(t+i*0.18); o.stop(t+i*0.18+0.4); }); }
 
 // ===== 热梗配置 =====
